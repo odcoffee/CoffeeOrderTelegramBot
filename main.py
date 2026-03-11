@@ -53,8 +53,8 @@ async def on_startup():
         logger.error("WEBHOOK_URL не установлен")
         return
 
-    # Инициализация бота
-    await application.bot.initialize()
+    # Инициализация application (ВАЖНО: сначала initialize, потом start)
+    await application.initialize()
     await application.start()
 
     # Установка webhook
