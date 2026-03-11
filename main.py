@@ -47,10 +47,19 @@ async def telegram_webhook(request: Request):
 @app.on_event("startup")
 async def on_startup():
     """Инициализация при запуске"""
-    webhook_url = os.getenv('WEBHOOK_URL')
+    # Используем встроенную переменную Koyeb или fallback на WEBHOOK_URL
+    koyeb_url = os.getenv('KOYEB_APP_URL')
+    webhook_base = os.getenv('WEBHOOK_URL')
 
-    if not webhook_url:
-        logger.error("WEBHOOK_URL не установлен")
+    if koyeb_url:
+        # Koyeb автоматически предоставляет домен без https://
+        webhook_url = f"https://{koyeb_url}"
+        logger.info(f"📡 Используется Koyeb URL: {koyeb_url}")
+    elif webhook_base:
+        webhook_url = webhook_base
+        logger.info(f"📡 Используется WEBHOOK_URL: {webhook_url}")
+    else:
+        logger.error("❌ Ни KOYEB_APP_URL, ни WEBHOOK_URL не установлены")
         return
 
     # Инициализация application (ВАЖНО: сначала initialize, потом start)
