@@ -1045,8 +1045,7 @@ class CoffeeBot:
             return 0
 
 
-# Инициализация бота
-bot = CoffeeBot()
+# Глобальный объект бота будет инициализирован после определения всех функций
 
 
 # ========== ОБРАБОТЧИКИ КОМАНД ==========
@@ -1054,7 +1053,7 @@ bot = CoffeeBot()
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик команды /start"""
     user_id = update.effective_user.id
-    role = bot.get_user_role(user_id)
+    role = bot_instance.get_user_role(user_id)
 
     if not role:
         await update.message.reply_text(
@@ -1091,7 +1090,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Показываем кассу для менеджеров
     cash_info = ""
     if role in [ROLE_MANAGER, ROLE_OWNER, ROLE_DEVELOPER]:
-        cash = bot.get_manager_cash(user_id)
+        cash = bot_instance.get_manager_cash(user_id)
         cash_info = f"\n💵 Ваша касса: {cash:,.2f} грн"
 
     await update.message.reply_text(
@@ -1107,7 +1106,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик меню"""
     user_id = update.effective_user.id
-    role = bot.get_user_role(user_id)
+    role = bot_instance.get_user_role(user_id)
     text = update.message.text
 
     if text == "📦 Новый заказ":
@@ -1138,7 +1137,7 @@ async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif text == "💵 Сдать кассу":
         if role in [ROLE_MANAGER, ROLE_OWNER, ROLE_DEVELOPER]:
-            cash = bot.get_manager_cash(user_id)
+            cash = bot_instance.get_manager_cash(user_id)
             await update.message.reply_text(
                 f"💵 Ваша текущая касса: {cash:,.2f} грн\n\n"
                 f"Введите сумму для сдачи:"
@@ -1164,7 +1163,7 @@ async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def start_new_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Начало оформления нового заказа"""
-    addresses = bot.get_addresses()
+    addresses = bot_instance.get_addresses()
 
     if not addresses:
         await update.message.reply_text("❌ Нет доступных адресов. Добавьте адреса в систему.")
@@ -1198,20 +1197,20 @@ async def handle_address_selection(update: Update, context: ContextTypes.DEFAULT
 
     if query.data.startswith("addr_"):
         addr_id = int(query.data.split("_")[1])
-        addresses = bot.get_addresses()
+        addresses = bot_instance.get_addresses()
         selected_address = next((a for a in addresses if a['ID'] == addr_id), None)
 
         if selected_address:
             context.user_data['selected_address'] = selected_address
 
             # Показываем товары
-            products = bot.get_products()
+            products = bot_instance.get_products()
             if not products:
                 await query.edit_message_text("❌ Нет доступных товаров.")
                 return CHOOSING_ACTION
 
             # Получаем остатки
-            stock = bot.get_stock()
+            stock = bot_instance.get_stock()
 
             keyboard = []
             for prod in products:
@@ -1263,7 +1262,7 @@ async def handle_product_selection(update: Update, context: ContextTypes.DEFAULT
 
     if query.data.startswith("prod_"):
         prod_id = int(query.data.split("_")[1])
-        products = bot.get_products()
+        products = bot_instance.get_products()
         selected_product = next((p for p in products if p['ID'] == prod_id), None)
 
         if selected_product:
@@ -1337,13 +1336,13 @@ async def handle_product_selection(update: Update, context: ContextTypes.DEFAULT
     # Обработка кнопки "Добавить еще товар"
     if query.data == "add_more_products":
         # Показываем товары снова
-        products = bot.get_products()
+        products = bot_instance.get_products()
         if not products:
             await query.edit_message_text("❌ Нет доступных товаров.")
             return CHOOSING_ACTION
 
         # Получаем остатки
-        stock = bot.get_stock()
+        stock = bot_instance.get_stock()
 
         keyboard = []
         for prod in products:
@@ -1487,7 +1486,7 @@ async def handle_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
         product = context.user_data.get('selected_product')
         product_name = product.get('Название')
 
-        stock = bot.get_stock()
+        stock = bot_instance.get_stock()
         stock_item = next((s for s in stock if s['Товар'] == product_name), None)
         available_qty = stock_item['Количество'] if stock_item else 0
 
@@ -1648,7 +1647,8 @@ async def handle_comment(update: Update, context: ContextTypes.DEFAULT_TYPE):
         price_type = item['price_type']
         total = item['total']
 
-        if bot.add_order(delivery_date, address['Название'], product_name, quantity, price_type, total, comment):
+        if bot_instance.add_order(delivery_date, address['Название'], product_name, quantity, price_type, total,
+                                  comment):
             created_orders.append(item)
             logger.info(f"Создан заказ: {product_name}, кол-во={quantity}, сумма={total}")
         else:
@@ -1696,8 +1696,8 @@ async def handle_edit_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
         today = datetime.now().strftime('%Y-%m-%d')
         tomorrow = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
 
-        orders_today = bot.get_orders_by_date(today)
-        orders_tomorrow = bot.get_orders_by_date(tomorrow)
+        orders_today = bot_instance.get_orders_by_date(today)
+        orders_tomorrow = bot_instance.get_orders_by_date(tomorrow)
         all_orders = orders_today + orders_tomorrow
 
         order = next((o for o in all_orders if str(o['ID']) == str(order_id)), None)
@@ -1792,7 +1792,7 @@ async def handle_edit_field_value(update: Update, context: ContextTypes.DEFAULT_
             date_obj = datetime.strptime(text, '%d.%m.%Y')
             new_date = date_obj.strftime('%Y-%m-%d')
 
-            if bot.update_order(order_id, delivery_date=new_date):
+            if bot_instance.update_order(order_id, delivery_date=new_date):
                 await update.message.reply_text(
                     f"✅ Дата доставки обновлена!\n\n"
                     f"Было: {order['Дата доставки']}\n"
@@ -1809,7 +1809,7 @@ async def handle_edit_field_value(update: Update, context: ContextTypes.DEFAULT_
                 await update.message.reply_text("❌ Количество должно быть больше нуля")
                 return EDIT_ORDER_FIELD
 
-            if bot.update_order(order_id, quantity=new_quantity):
+            if bot_instance.update_order(order_id, quantity=new_quantity):
                 await update.message.reply_text(
                     f"✅ Количество обновлено!\n\n"
                     f"Было: {order['Количество']} кг\n"
@@ -1822,7 +1822,7 @@ async def handle_edit_field_value(update: Update, context: ContextTypes.DEFAULT_
         elif edit_field == 'comment':
             new_comment = '' if text == '-' else text
 
-            if bot.update_order(order_id, comment=new_comment):
+            if bot_instance.update_order(order_id, comment=new_comment):
                 await update.message.reply_text(
                     f"✅ Комментарий обновлен!\n\n"
                     f"Было: {order.get('Комментарий', '-')}\n"
@@ -1848,7 +1848,7 @@ async def handle_edit_field_value(update: Update, context: ContextTypes.DEFAULT_
 async def show_orders_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показ заказов на сегодня"""
     today = datetime.now().strftime('%Y-%m-%d')
-    orders = bot.get_orders_by_date(today)
+    orders = bot_instance.get_orders_by_date(today)
 
     if not orders:
         await update.message.reply_text("📋 На сегодня заказов нет.")
@@ -1880,7 +1880,7 @@ async def show_orders_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
             point_orders = grouped[point_name]
 
             # Получаем адрес один раз для всей группы
-            address = bot.get_address_by_name(point_name)
+            address = bot_instance.get_address_by_name(point_name)
 
             for order in point_orders:
                 try:
@@ -1940,7 +1940,7 @@ async def show_orders_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Выводим заказы сгруппированные по адресу
         for point_name in sorted(grouped_done.keys()):
             point_orders = grouped_done[point_name]
-            address = bot.get_address_by_name(point_name)
+            address = bot_instance.get_address_by_name(point_name)
 
             text += f"📍 <b>{point_name}</b>\n"
             if address:
@@ -1974,7 +1974,7 @@ async def show_orders_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def show_orders_tomorrow(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показ заказов на завтра"""
     tomorrow = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-    orders = bot.get_orders_by_date(tomorrow)
+    orders = bot_instance.get_orders_by_date(tomorrow)
 
     if not orders:
         await update.message.reply_text("📅 На завтра заказов нет.")
@@ -2006,7 +2006,7 @@ async def show_orders_tomorrow(update: Update, context: ContextTypes.DEFAULT_TYP
             point_orders = grouped[point_name]
 
             # Получаем адрес один раз для всей группы
-            address = bot.get_address_by_name(point_name)
+            address = bot_instance.get_address_by_name(point_name)
 
             for order in point_orders:
                 try:
@@ -2058,7 +2058,7 @@ async def show_orders_tomorrow(update: Update, context: ContextTypes.DEFAULT_TYP
         # Выводим заказы сгруппированные по адресу
         for point_name in sorted(grouped_done.keys()):
             point_orders = grouped_done[point_name]
-            address = bot.get_address_by_name(point_name)
+            address = bot_instance.get_address_by_name(point_name)
 
             text += f"📍 <b>{point_name}</b>\n"
             if address:
@@ -2113,13 +2113,13 @@ async def mark_order_as_done(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         # Получаем информацию о заказе ДО его выполнения
         today = datetime.now().strftime('%Y-%m-%d')
-        orders = bot.get_orders_by_date(today)
+        orders = bot_instance.get_orders_by_date(today)
         order_info = next((o for o in orders if str(o['ID']) == str(order_id)), None)
 
-        success, order_sum = bot.mark_order_done(order_id, user_id, user_name)
+        success, order_sum = bot_instance.mark_order_done(order_id, user_id, user_name)
 
         if success:
-            cash = bot.get_manager_cash(user_id)
+            cash = bot_instance.get_manager_cash(user_id)
 
             # Получаем текущий остаток товара
             message_text = (
@@ -2134,7 +2134,7 @@ async def mark_order_as_done(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 quantity = order_info.get('Количество', 0)
 
                 if product_name:
-                    stock = bot.get_stock()
+                    stock = bot_instance.get_stock()
                     product_stock = next((s for s in stock if s['Товар'] == product_name), None)
 
                     if product_stock:
@@ -2160,7 +2160,7 @@ async def mark_order_as_done(update: Update, context: ContextTypes.DEFAULT_TYPE)
     elif query.data == "refresh_today":
         # Обновляем список заказов на сегодня
         today = datetime.now().strftime('%Y-%m-%d')
-        orders = bot.get_orders_by_date(today)
+        orders = bot_instance.get_orders_by_date(today)
 
         pending = [o for o in orders if o['Статус'] == 'Ожидает']
         done = [o for o in orders if o['Статус'] == 'Выполнен']
@@ -2204,7 +2204,7 @@ async def mark_order_as_done(update: Update, context: ContextTypes.DEFAULT_TYPE)
     elif query.data == "refresh_tomorrow":
         # Аналогично для завтра
         tomorrow = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-        orders = bot.get_orders_by_date(tomorrow)
+        orders = bot_instance.get_orders_by_date(tomorrow)
 
         pending = [o for o in orders if o['Статус'] == 'Ожидает']
         done = [o for o in orders if o['Статус'] == 'Выполнен']
@@ -2253,7 +2253,7 @@ async def mark_order_as_done(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def show_my_cash(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показ кассы менеджера"""
     user_id = update.effective_user.id
-    cash = bot.get_manager_cash(user_id)
+    cash = bot_instance.get_manager_cash(user_id)
 
     await update.message.reply_text(
         f"💼 <b>Ваша касса</b>\n\n"
@@ -2294,7 +2294,7 @@ async def handle_add_expense(update: Update, context: ContextTypes.DEFAULT_TYPE)
         user_name = update.effective_user.first_name
 
         # Проверяем достаточно ли денег
-        current_cash = bot.get_manager_cash(user_id)
+        current_cash = bot_instance.get_manager_cash(user_id)
         if current_cash < amount:
             await update.message.reply_text(
                 f"❌ Недостаточно средств в кассе!\n"
@@ -2303,8 +2303,8 @@ async def handle_add_expense(update: Update, context: ContextTypes.DEFAULT_TYPE)
             )
             return CHOOSING_ACTION
 
-        if bot.add_expense(user_id, user_name, description, amount):
-            new_cash = bot.get_manager_cash(user_id)
+        if bot_instance.add_expense(user_id, user_name, description, amount):
+            new_cash = bot_instance.get_manager_cash(user_id)
             await update.message.reply_text(
                 f"✅ Расход добавлен!\n\n"
                 f"📝 Описание: {description}\n"
@@ -2347,7 +2347,7 @@ async def handle_cash_handover(update: Update, context: ContextTypes.DEFAULT_TYP
         user_id = update.effective_user.id
         user_name = update.effective_user.first_name
 
-        success, result = bot.handover_cash(user_id, user_name, amount)
+        success, result = bot_instance.handover_cash(user_id, user_name, amount)
 
         if success:
             await update.message.reply_text(
@@ -2372,14 +2372,14 @@ async def handle_cash_handover(update: Update, context: ContextTypes.DEFAULT_TYP
 
 async def show_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показ статистики"""
-    daily_total = bot.get_daily_total()
-    monthly_total = bot.get_monthly_total()
-    monthly_expenses = bot.get_monthly_expenses()
+    daily_total = bot_instance.get_daily_total()
+    monthly_total = bot_instance.get_monthly_total()
+    monthly_expenses = bot_instance.get_monthly_expenses()
     monthly_profit = monthly_total - monthly_expenses
 
     # Для менеджеров показываем кассу
     user_id = update.effective_user.id
-    role = bot.get_user_role(user_id)
+    role = bot_instance.get_user_role(user_id)
 
     stats_text = (
         f"📊 <b>Статистика</b>\n\n"
@@ -2393,7 +2393,7 @@ async def show_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     if role in [ROLE_MANAGER, ROLE_OWNER, ROLE_DEVELOPER]:
-        cash = bot.get_manager_cash(user_id)
+        cash = bot_instance.get_manager_cash(user_id)
         stats_text += f"\n\n💼 <b>Ваша касса: {cash:,.2f} грн</b>"
 
     await update.message.reply_text(stats_text, parse_mode='HTML')
@@ -2436,7 +2436,7 @@ async def manage_products(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def manage_stock(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Управление остатками"""
-    stock = bot.get_stock()
+    stock = bot_instance.get_stock()
 
     text = "📦 <b>Текущие остатки:</b>\n\n"
 
@@ -2482,7 +2482,7 @@ async def handle_management_callbacks(update: Update, context: ContextTypes.DEFA
 
     if query.data == "add_stock_arrival":
         # Добавление поступления товара
-        products = bot.get_products()
+        products = bot_instance.get_products()
         if not products:
             await query.edit_message_text("❌ Сначала добавьте товары в каталог")
             return CHOOSING_ACTION
@@ -2507,14 +2507,14 @@ async def handle_management_callbacks(update: Update, context: ContextTypes.DEFA
 
     elif query.data.startswith("arrival_"):
         product_id = int(query.data.split("_")[1])
-        products = bot.get_products()
+        products = bot_instance.get_products()
         product = next((p for p in products if p['ID'] == product_id), None)
 
         if product:
             context.user_data['stock_product'] = product['Название']
             context.user_data['stock_action'] = 'arrival'
 
-            stock = bot.get_stock()
+            stock = bot_instance.get_stock()
             current = next((s for s in stock if s['Товар'] == product['Название']), None)
             current_qty = current['Количество'] if current else 0
 
@@ -2531,7 +2531,7 @@ async def handle_management_callbacks(update: Update, context: ContextTypes.DEFA
 
     elif query.data == "write_off_stock":
         # Списание товара
-        stock = bot.get_stock()
+        stock = bot_instance.get_stock()
         if not stock:
             await query.edit_message_text("❌ Остатки пока не добавлены")
             return CHOOSING_ACTION
@@ -2564,7 +2564,7 @@ async def handle_management_callbacks(update: Update, context: ContextTypes.DEFA
         context.user_data['stock_product'] = product_name
         context.user_data['stock_action'] = 'writeoff'
 
-        stock = bot.get_stock()
+        stock = bot_instance.get_stock()
         current = next((s for s in stock if s['Товар'] == product_name), None)
         current_qty = current['Количество'] if current else 0
 
@@ -2580,12 +2580,12 @@ async def handle_management_callbacks(update: Update, context: ContextTypes.DEFA
 
     elif query.data == "set_min_stock":
         # Установка минимального остатка
-        products = bot.get_products()
+        products = bot_instance.get_products()
         if not products:
             await query.edit_message_text("❌ Сначала добавьте товары в каталог")
             return CHOOSING_ACTION
 
-        stock = bot.get_stock()
+        stock = bot_instance.get_stock()
 
         keyboard = []
         for prod in products:
@@ -2613,7 +2613,7 @@ async def handle_management_callbacks(update: Update, context: ContextTypes.DEFA
         context.user_data['stock_product'] = product_name
         context.user_data['stock_action'] = 'setmin'
 
-        stock = bot.get_stock()
+        stock = bot_instance.get_stock()
         current = next((s for s in stock if s['Товар'] == product_name), None)
         current_min = current['Мін. остаток'] if current else 0
 
@@ -2629,7 +2629,7 @@ async def handle_management_callbacks(update: Update, context: ContextTypes.DEFA
 
     elif query.data == "back_stock":
         # Возврат к меню остатков
-        stock = bot.get_stock()
+        stock = bot_instance.get_stock()
 
         text = "📦 <b>Текущие остатки:</b>\n\n"
 
@@ -2677,7 +2677,7 @@ async def handle_management_callbacks(update: Update, context: ContextTypes.DEFA
         return ADD_ADDRESS
 
     elif query.data == "list_addresses":
-        addresses = bot.get_addresses()
+        addresses = bot_instance.get_addresses()
         if not addresses:
             await query.edit_message_text("❌ Список адресов пуст.")
         else:
@@ -2689,7 +2689,7 @@ async def handle_management_callbacks(update: Update, context: ContextTypes.DEFA
 
     elif query.data == "edit_address":
         # Редактирование адреса - показываем список для выбора
-        addresses = bot.get_addresses()
+        addresses = bot_instance.get_addresses()
         if not addresses:
             await query.edit_message_text("❌ Список адресов пуст.")
             return CHOOSING_ACTION
@@ -2715,7 +2715,7 @@ async def handle_management_callbacks(update: Update, context: ContextTypes.DEFA
     elif query.data.startswith("editaddr_"):
         # Показать текущие данные адреса и запросить новые
         address_id = int(query.data.split("_")[1])
-        addresses = bot.get_addresses()
+        addresses = bot_instance.get_addresses()
         address = next((a for a in addresses if a['ID'] == address_id), None)
 
         if address:
@@ -2746,7 +2746,7 @@ async def handle_management_callbacks(update: Update, context: ContextTypes.DEFA
 
     elif query.data == "edit_address":
         # Редактирование адреса - показываем список адресов
-        addresses = bot.get_addresses()
+        addresses = bot_instance.get_addresses()
         if not addresses:
             await query.edit_message_text("❌ Список адресов пуст.")
             return CHOOSING_ACTION
@@ -2771,7 +2771,7 @@ async def handle_management_callbacks(update: Update, context: ContextTypes.DEFA
     elif query.data.startswith("editaddr_"):
         # Обработка выбора адреса для редактирования
         address_id = int(query.data.split("_")[1])
-        addresses = bot.get_addresses()
+        addresses = bot_instance.get_addresses()
         address = next((a for a in addresses if a['ID'] == address_id), None)
 
         if address:
@@ -2801,7 +2801,7 @@ async def handle_management_callbacks(update: Update, context: ContextTypes.DEFA
 
     elif query.data == "delete_address":
         # Удаление адреса - показываем список адресов для выбора
-        addresses = bot.get_addresses()
+        addresses = bot_instance.get_addresses()
         if not addresses:
             await query.edit_message_text("❌ Список адресов пуст.")
             return CHOOSING_ACTION
@@ -2827,7 +2827,7 @@ async def handle_management_callbacks(update: Update, context: ContextTypes.DEFA
     elif query.data.startswith("deladdr_"):
         # Обработка удаления адреса
         address_id = int(query.data.split("_")[1])
-        addresses = bot.get_addresses()
+        addresses = bot_instance.get_addresses()
         address = next((a for a in addresses if a['ID'] == address_id), None)
 
         if address:
@@ -2852,10 +2852,10 @@ async def handle_management_callbacks(update: Update, context: ContextTypes.DEFA
     elif query.data.startswith("confirmdeladdr_"):
         # Подтверждение удаления адреса
         address_id = int(query.data.split("_")[1])
-        addresses = bot.get_addresses()
+        addresses = bot_instance.get_addresses()
         address = next((a for a in addresses if a['ID'] == address_id), None)
 
-        if address and bot.delete_address(address_id):
+        if address and bot_instance.delete_address(address_id):
             await query.edit_message_text(
                 f"✅ Адрес успешно удален!\n\n"
                 f"📍 {address['Название']}\n"
@@ -2880,7 +2880,7 @@ async def handle_management_callbacks(update: Update, context: ContextTypes.DEFA
         return ADD_PRODUCT_DATA
 
     elif query.data == "list_products":
-        products = bot.get_products()
+        products = bot_instance.get_products()
         if not products:
             await query.edit_message_text("❌ Список товаров пуст.")
         else:
@@ -2895,7 +2895,7 @@ async def handle_management_callbacks(update: Update, context: ContextTypes.DEFA
 
     elif query.data == "edit_product":
         # Редактирование товара - показываем список товаров для выбора
-        products = bot.get_products()
+        products = bot_instance.get_products()
         if not products:
             await query.edit_message_text("❌ Список товаров пуст.")
             return CHOOSING_ACTION
@@ -2920,7 +2920,7 @@ async def handle_management_callbacks(update: Update, context: ContextTypes.DEFA
     elif query.data.startswith("editprod_"):
         # Обработка выбора товара для редактирования
         product_id = int(query.data.split("_")[1])
-        products = bot.get_products()
+        products = bot_instance.get_products()
         product = next((p for p in products if p['ID'] == product_id), None)
 
         if product:
@@ -2945,7 +2945,7 @@ async def handle_management_callbacks(update: Update, context: ContextTypes.DEFA
 
     elif query.data == "delete_product":
         # Удаление товара - показываем список товаров для выбора
-        products = bot.get_products()
+        products = bot_instance.get_products()
         if not products:
             await query.edit_message_text("❌ Список товаров пуст.")
             return CHOOSING_ACTION
@@ -2971,7 +2971,7 @@ async def handle_management_callbacks(update: Update, context: ContextTypes.DEFA
     elif query.data.startswith("delprod_"):
         # Обработка удаления товара
         product_id = int(query.data.split("_")[1])
-        products = bot.get_products()
+        products = bot_instance.get_products()
         product = next((p for p in products if p['ID'] == product_id), None)
 
         if product:
@@ -2998,10 +2998,10 @@ async def handle_management_callbacks(update: Update, context: ContextTypes.DEFA
     elif query.data.startswith("confirmdel_"):
         # Подтверждение удаления товара
         product_id = int(query.data.split("_")[1])
-        products = bot.get_products()
+        products = bot_instance.get_products()
         product = next((p for p in products if p['ID'] == product_id), None)
 
-        if product and bot.delete_product(product_id):
+        if product and bot_instance.delete_product(product_id):
             await query.edit_message_text(
                 f"✅ Товар успешно удален!\n\n"
                 f"☕ {product['Название']} - {product['Вес']}\n\n"
@@ -3039,7 +3039,7 @@ async def handle_add_address(update: Update, context: ContextTypes.DEFAULT_TYPE)
         address = parts[1].strip()
         contact = parts[2].strip() if len(parts) > 2 else ''
 
-        if bot.add_address(name, address, contact):
+        if bot_instance.add_address(name, address, contact):
             msg = f"✅ Адрес успешно добавлен!\n\n📍 Название: {name}\n🏠 Адрес: {address}"
             if contact:
                 msg += f"\n👤 Контакт: {contact}"
@@ -3084,7 +3084,7 @@ async def handle_edit_address(update: Update, context: ContextTypes.DEFAULT_TYPE
         address_id = context.user_data.get('edit_address_id')
         old_address = context.user_data.get('edit_address')
 
-        if bot.update_address(address_id, name, address, contact):
+        if bot_instance.update_address(address_id, name, address, contact):
             msg = (
                 f"✅ Адрес успешно обновлен!\n\n"
                 f"<b>Было:</b>\n"
@@ -3140,7 +3140,7 @@ async def handle_edit_address(update: Update, context: ContextTypes.DEFAULT_TYPE
         address_id = context.user_data.get('edit_address_id')
         old_address = context.user_data.get('edit_address')
 
-        if bot.update_address(address_id, name, address, contact):
+        if bot_instance.update_address(address_id, name, address, contact):
             msg = (
                 f"✅ Адрес успешно обновлен!\n\n"
                 f"<b>Было:</b>\n"
@@ -3198,7 +3198,7 @@ async def handle_add_product(update: Update, context: ContextTypes.DEFAULT_TYPE)
             )
             return ADD_PRODUCT_DATA
 
-        if bot.add_product(name, weight, price_retail, price_wholesale, price_vip):
+        if bot_instance.add_product(name, weight, price_retail, price_wholesale, price_vip):
             await update.message.reply_text(
                 f"✅ Товар успешно добавлен!\n\n"
                 f"☕ Название: {name}\n"
@@ -3256,7 +3256,7 @@ async def handle_edit_product(update: Update, context: ContextTypes.DEFAULT_TYPE
         product_id = context.user_data.get('edit_product_id')
         old_product = context.user_data.get('edit_product')
 
-        if bot.update_product(product_id, name, weight, price_retail, price_wholesale, price_vip):
+        if bot_instance.update_product(product_id, name, weight, price_retail, price_wholesale, price_vip):
             await update.message.reply_text(
                 f"✅ Товар успешно обновлен!\n\n"
                 f"<b>Было:</b>\n"
@@ -3301,8 +3301,8 @@ async def handle_stock_arrival(update: Update, context: ContextTypes.DEFAULT_TYP
             return CHOOSING_ACTION
 
         # Добавляем к остаткам
-        if bot.update_stock(product_name, quantity):
-            stock = bot.get_stock()
+        if bot_instance.update_stock(product_name, quantity):
+            stock = bot_instance.get_stock()
             current = next((s for s in stock if s['Товар'] == product_name), None)
             new_qty = current['Количество'] if current else quantity
 
@@ -3339,7 +3339,7 @@ async def handle_stock_writeoff(update: Update, context: ContextTypes.DEFAULT_TY
             return CHOOSING_ACTION
 
         # Проверяем, достаточно ли остатка
-        stock = bot.get_stock()
+        stock = bot_instance.get_stock()
         current = next((s for s in stock if s['Товар'] == product_name), None)
         if not current or current['Количество'] < quantity:
             await update.message.reply_text(
@@ -3377,8 +3377,8 @@ async def handle_stock_writeoff_reason(update: Update, context: ContextTypes.DEF
         return CHOOSING_ACTION
 
     # Списываем остаток
-    if bot.update_stock(product_name, -quantity):
-        stock = bot.get_stock()
+    if bot_instance.update_stock(product_name, -quantity):
+        stock = bot_instance.get_stock()
         current = next((s for s in stock if s['Товар'] == product_name), None)
         new_qty = current['Количество'] if current else 0
 
@@ -3413,11 +3413,11 @@ async def handle_set_min_stock(update: Update, context: ContextTypes.DEFAULT_TYP
             return CHOOSING_ACTION
 
         # Обновляем минимальный остаток
-        stock = bot.get_stock()
+        stock = bot_instance.get_stock()
         current = next((s for s in stock if s['Товар'] == product_name), None)
         current_qty = current['Количество'] if current else 0
 
-        if bot.set_stock(product_name, current_qty, min_quantity):
+        if bot_instance.set_stock(product_name, current_qty, min_quantity):
             await update.message.reply_text(
                 f"✅ Минимальный остаток установлен!\n\n"
                 f"📦 Товар: {product_name}\n"
@@ -3493,13 +3493,15 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return CHOOSING_ACTION
 
 
-def main():
-    """Запуск бота"""
+# ========== ИНИЦИАЛИЗАЦИЯ APPLICATION ==========
+
+def setup_application():
+    """Настройка и инициализация application"""
     token = os.getenv('TELEGRAM_BOT_TOKEN')
 
     if not token:
         logger.error("TELEGRAM_BOT_TOKEN не установлен")
-        return
+        raise ValueError("TELEGRAM_BOT_TOKEN is required")
 
     application = Application.builder().token(token).build()
 
@@ -3587,10 +3589,20 @@ def main():
     )
 
     application.add_handler(conv_handler)
-
-    logger.info("Бот запущен и готов к работе")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    return application
 
 
+# Инициализация бота и application
+bot_instance = CoffeeBot()
+application = setup_application()
+
+# Для обратной совместимости с локальным запуском
 if __name__ == '__main__':
-    main()
+    use_webhook = os.getenv('USE_WEBHOOK', 'false').lower() == 'true'
+
+    if use_webhook:
+        logger.info("Для webhook используйте: uvicorn main:app --host 0.0.0.0 --port 8080")
+        logger.info("Или запустите: python main.py")
+    else:
+        logger.info("Бот запущен в режиме POLLING (для локальной разработки)")
+        application.run_polling(allowed_updates=Update.ALL_TYPES)

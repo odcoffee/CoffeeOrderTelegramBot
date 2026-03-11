@@ -11,6 +11,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Копирование кода бота
 COPY bot.py .
+COPY main.py .
 
-# Запуск бота
-CMD ["python", "bot.py"]
+# Порт для webhook
+EXPOSE 8080
+
+# Запуск через FastAPI с uvicorn
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]

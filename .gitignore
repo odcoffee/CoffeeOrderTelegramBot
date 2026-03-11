@@ -1,12 +1,19 @@
+# -------------------------
 # Python
+# -------------------------
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+
+# Virtual environments
 env/
 venv/
 ENV/
+.venv/
+
+# Build artifacts
 build/
 develop-eggs/
 dist/
@@ -23,41 +30,57 @@ wheels/
 .installed.cfg
 *.egg
 
+# -------------------------
 # Environment variables
+# -------------------------
 .env
 .env.local
 credentials.json
 service_account.json
+service-account.json
 
-# IDE
+# -------------------------
+# IDE / Editors
+# -------------------------
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS
+# -------------------------
+# OS files
+# -------------------------
 .DS_Store
 Thumbs.db
 
+# -------------------------
 # Logs
+# -------------------------
 *.log
 logs/
 
-# Database
+# -------------------------
+# Databases
+# -------------------------
 *.db
 *.sqlite
 
+# -------------------------
 # Testing
+# -------------------------
 .pytest_cache/
 .coverage
 htmlcov/
 
+# -------------------------
 # Docker
+# -------------------------
 .dockerignore
 
-# Others
+# -------------------------
+# Temporary / Backup
+# -------------------------
 *.bak
 *.tmp
 temp/
-.venv/
