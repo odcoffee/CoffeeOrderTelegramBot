@@ -35,13 +35,27 @@ async def health():
 async def telegram_webhook(request: Request):
     """Endpoint для получения обновлений от Telegram"""
     try:
+        logger.info("📨 Получен webhook запрос от Telegram")
         data = await request.json()
+        logger.info(f"📦 Данные: {data}")
         update = Update.de_json(data, application.bot)
         await application.process_update(update)
+        logger.info("✅ Обновление обработано успешно")
         return {"ok": True}
     except Exception as e:
-        logger.error(f"Ошибка обработки webhook: {e}")
+        logger.error(f"❌ Ошибка обработки webhook: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return {"ok": False, "error": str(e)}
+
+
+@app.api_route("/telegram", methods=["GET", "POST", "HEAD"])
+async def telegram_all_methods(request: Request):
+    """Отладочный endpoint - отвечает на все методы"""
+    logger.info(f"🔍 Запрос: {request.method} /telegram")
+    if request.method == "POST":
+        return await telegram_webhook(request)
+    return {"status": "telegram endpoint is working", "method": request.method}
 
 
 @app.on_event("startup")
